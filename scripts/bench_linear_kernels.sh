@@ -2,6 +2,7 @@ precisions="int8 fp16"
 seq_lens="128 256 512 1024"
 
 output_file=log/linear_kernels_latency.csv
+mkdir -p log
 touch $output_file
 
 # C1s="12288 49152"
@@ -20,14 +21,17 @@ touch $output_file
 #     done
 # done
 
-setting1="12288:49152:linear_relu_a8_w8_b8_o8:fc1" # fc1
+#setting1="12288:49152:linear_relu_a8_w8_b8_o8:fc1" # fc1
 setting2="49152:12288:linear_a8_w8_b32_o32:fc2"    # fc2
-setting3="12288:12288:linear_a8_w8_b8_o8:qkv"      # q, k, v
-setting4="12288:12288:linear_a8_w8_b32_o32:out"    # out_proj
+setting3="49152:12288:linear_a8_w8_b32_o32_triton:fc2"    # fc2
+#setting3="12288:12288:linear_a8_w8_b8_o8:qkv"      # q, k, v
+#setting4="12288:12288:linear_a8_w8_b32_o32:out"    # out_proj
+
 echo "precision,seq_len,C1,C2,fn,name,ms" >$output_file
-for precision in $precisions; do
-    for seq_len in $seq_lens; do
-        for setting in $setting1 $setting2 $setting3 $setting4; do
+
+for seq_len in $seq_lens; do
+    for setting in $setting2 $setting3; do
+        for precision in $precisions; do
             C1=$(echo $setting | cut -d ":" -f 1)
             C2=$(echo $setting | cut -d ":" -f 2)
             fn=$(echo $setting | cut -d ":" -f 3)

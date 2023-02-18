@@ -1,4 +1,5 @@
 import torch
+from matmul_q import matmul_quant
 from torch_int._CUDA import linear_a8_w8_b32_o32, linear_relu_a8_w8_b8_o8, linear_a8_w8_b8_o8
 from utils import bench_func_latency
 import argparse
@@ -12,6 +13,25 @@ def bench_linear_a8_w8_b32_o32(precision, seq_len, c1, c2):
         bias = torch.randint(-65535, 65535, (c2,), dtype=torch.int32).cuda()
         args = (dummy_input, weight, bias)
         fn = linear_a8_w8_b32_o32
+    elif precision == 'fp16':
+        dummy_input = torch.randn(seq_len, c1).half().cuda()
+        model = torch.nn.Linear(c1, c2).half().cuda()
+        args = (dummy_input,)
+        fn = model.forward
+    else:
+        raise NotImplementedError
+    bench_func_latency(fn, args, num_iter=2000)
+
+
+def bench_linear_a8_w8_b32_o32_triton(precision, seq_len, c1, c2):
+    if precision == 'int8':
+        dummy_input = torch.randint(-127, 127,
+                                    (seq_len, c1), dtype=torch.int8, device="cuda")
+        weight = torch.randint(-127, 127, (c2, c1), dtype=torch.int8, device="cuda")
+        bias = torch.randint(-65535, 65535, (c2,), dtype=torch.int32, device="cuda")
+        out = torch.empty((seq_len, c2), device="cuda", dtype=torch.float32)
+        args = (dummy_input, weight.t(), bias, 2., 1., out)
+        fn = matmul_quant
     elif precision == 'fp16':
         dummy_input = torch.randn(seq_len, c1).half().cuda()
         model = torch.nn.Linear(c1, c2).half().cuda()
@@ -78,9 +98,11 @@ if __name__ == '__main__':
     print('precision = ', args.precision)
     if args.func == 'linear_a8_w8_b32_o32':
         bench_linear_a8_w8_b32_o32(args.precision, SEQ_LEN, C1, C2)
+    elif args.func == 'linear_a8_w8_b32_o32_triton':
+        bench_linear_a8_w8_b32_o32_triton(args.precision, SEQ_LEN, C1, C2)
     elif args.func == 'linear_a8_w8_b8_o8':
         bench_linear_a8_w8_b8_o8(args.precision, SEQ_LEN, C1, C2)
     elif args.func == 'linear_relu_a8_w8_b8_o8':
         bench_linear_relu_a8_w8_b8_o8(args.precision, SEQ_LEN, C1, C2)
     else:
-        raise NotImplementedError
+        raise NotImplementedError(f"not implemented {args.func}")
