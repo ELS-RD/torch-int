@@ -79,18 +79,40 @@ def bench_func(func, args, num_iter=1000):
 
 
 def bench_func_latency(func, args, num_iter=1000):
-    cudnn.benchmark = True
-    # Warm up
-    for i in range(100):
+    # cudnn.benchmark = True
+    # # Warm up
+    # for i in range(100):
+    #     func(*args)
+    # torch.cuda.synchronize()
+    # start = torch.cuda.Event(enable_timing=True)
+    # end = torch.cuda.Event(enable_timing=True)
+    # start.record()
+    # for i in range(num_iter):
+    #     func(*args)
+    # end.record()
+    # torch.cuda.synchronize()
+    # print(
+    #     f"Average inference time: {start.elapsed_time(end) / num_iter} ms")
+    # return start.elapsed_time(end) / num_iter
+
+    start_event = [torch.cuda.Event(enable_timing=True) for i in range(num_iter)]
+    end_event = [torch.cuda.Event(enable_timing=True) for i in range(num_iter)]
+    cache = torch.empty(int(256e6), dtype=torch.int8, device="cuda")
+
+    # Warm-up
+    for _ in range(100):
         func(*args)
-    torch.cuda.synchronize()
-    start = torch.cuda.Event(enable_timing=True)
-    end = torch.cuda.Event(enable_timing=True)
-    start.record()
+    # Benchmark
     for i in range(num_iter):
+        # we clear the L2 cache before each run
+        cache.zero_()
+        # record time of `fn`
+        start_event[i].record()
         func(*args)
-    end.record()
+        end_event[i].record()
+    # Record clocks
     torch.cuda.synchronize()
-    print(
-        f"Average inference time: {start.elapsed_time(end) / num_iter} ms")
-    return start.elapsed_time(end) / num_iter
+    times = torch.tensor([s.elapsed_time(e) for s, e in zip(start_event, end_event)])
+    av = times.median().item()
+    print(f"Average inference time: {av} ms")
+    return av
