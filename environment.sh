@@ -1,6 +1,6 @@
 export TORCH_INT_ROOT=$PWD
 export CUTLASS_PATH="$TORCH_INT_ROOT/submodules/cutlass"
-export CUDA_PATH="/usr/local/cuda"
+export CUDA_PATH="/usr/local/cuda-11.7"
 export PATH="$CUDA_PATH/bin:$PATH"
 
 # CUDA
