@@ -24,9 +24,11 @@ def test_quant_linear_a8_w8_b32_o32():
 @torch.no_grad()
 def test_quant_linear_a8_w8_b32_o32_with_scaling():
     B, M, N = 128, 512, 1024
-    weight = torch.randint(-128, 127, (N, M), dtype=torch.int8, device="cuda")
-    bias = torch.randint(torch.iinfo(torch.int32).min, torch.iinfo(torch.int32).max, (N,), dtype=torch.int32, device="cuda")
-    x = torch.randint(-128, 127, (B, M), dtype=torch.int8, device="cuda")
+    int32_min, int32_max = torch.iinfo(torch.int32).min, torch.iinfo(torch.int32).max
+    int8_min, int8_max = torch.iinfo(torch.int8).min, torch.iinfo(torch.int8).max
+    weight = torch.randint(int8_min, int8_max, (N, M), dtype=torch.int8, device="cuda")
+    bias = torch.randint(int32_min, int32_max, (N,), dtype=torch.int32, device="cuda")
+    x = torch.randint(int8_min, int8_max, (B, M), dtype=torch.int8, device="cuda")
     alpha, beta = 0.01, 0.0001
     linear = torch.nn.Linear(M, N, bias=True)
     linear.weight.data = weight.float() * alpha
@@ -36,8 +38,7 @@ def test_quant_linear_a8_w8_b32_o32_with_scaling():
     assert torch.allclose(y_gt, y.float(), atol=0.5)
     y_triton = torch.zeros_like(y)
     y_triton = matmul_quant(x, weight.t(), bias, alpha, beta, y_triton)
-    print(y.dtype, y_triton.dtype)
-    assert torch.allclose(y_triton.float(), y.float(), atol=2)
+    assert torch.allclose(y_triton.float(), y.float(), atol=1)
 
 
 @torch.no_grad()

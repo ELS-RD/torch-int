@@ -103,13 +103,12 @@ def _kernel(A, B, bias, C, M, N, K,
         A += BLOCK_K * SPLIT_K * stride_ak
         B += BLOCK_K * SPLIT_K * stride_bk
 
+    acc = acc.to(C.dtype.element_ty)
     if alpha != 1.:
         acc = acc * alpha
-    acc = acc.to(C.dtype.element_ty)
 
-    bias = tl.load(bias + rbn, mask=rbn < N, other=0.)  # .to(ACC_TYPE)  # TODO fix bug in Triton
+    bias = tl.load(bias + rbn, mask=rbn < N, other=0.).to(C.dtype.element_ty)
     if beta != 1.:
-        bias = bias.to(C.dtype.element_ty)
         bias *= beta
     acc = acc + bias[None, :]
     # rematerialize rm and rn to save registers
